@@ -18,10 +18,12 @@ import { updateTrayMenu } from "./tray";
 export let mainWindow: BrowserWindow;
 
 // currently in-use build
+declare const __BUILD_SERVER_URL__: string;
+
 export const BUILD_URL = new URL(
   app.commandLine.hasSwitch("force-server")
     ? app.commandLine.getSwitchValue("force-server")
-    : /*MAIN_WINDOW_VITE_DEV_SERVER_URL ??*/ "https://beta.revolt.chat",
+    : __BUILD_SERVER_URL__,
 );
 
 // internal window state
