@@ -3,11 +3,11 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # Triggers only when you push a tag like v1.0.0
+      - 'v*' # Runs only when you push a tag like v1.0.1
   workflow_dispatch:
 
 permissions:
-  contents: write # Needed to create the release and upload files
+  contents: write
 
 jobs:
   build-and-release:
@@ -21,9 +21,24 @@ jobs:
       - name: Checkout Code & Submodules
         uses: actions/checkout@v4
         with:
-          # CRITICAL FIX: This ensures 'assets/desktop/icon.png' is downloaded
+          # FIX: This native option prevents the "Skipping submodule" error
           submodules: recursive
           fetch-depth: 0
+          # If your 'stoatchat/assets' repo is PRIVATE, uncomment the line below 
+          # and add your PAT as a secret named SUBMODULE_TOKEN
+          # token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      # Debug: Verify the file exists before wasting time building
+      - name: Verify Icon Exists
+        shell: bash
+        run: |
+          if [ -f "assets/desktop/icon.png" ]; then
+            echo "✅ Asset found!"
+          else
+            echo "❌ Asset MISSING. The submodule failed to download."
+            ls -R assets
+            exit 1
+          fi
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -39,20 +54,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      # --- Build Steps ---
-
-      # Windows & Linux: Standard build
+      # Windows & Linux Build
       - name: Make (Windows/Linux)
         if: matrix.os != 'macos-latest'
         run: pnpm make
 
-      # macOS: Attempt to build both Intel (x64) and Apple Silicon (arm64)
-      # This matches the file list you shared (Stoat-darwin-arm64 & Stoat-darwin-x64)
-      - name: Make (macOS Universal)
+      # macOS Build (Universal)
+      - name: Make (macOS)
         if: matrix.os == 'macos-latest'
         run: pnpm make --arch=x64,arm64
-
-      # --- Release Step ---
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
@@ -60,7 +70,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # This action is smart; it appends files from all 3 jobs to the same Release
           files: |
             out/make/**/RELEASES
             out/make/**/*.nupkg
