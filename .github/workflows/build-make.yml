@@ -1,14 +1,3 @@
-      - name: Upload build artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts-${{ matrix.os }}
-          path: |
-            out/make/squirrel.windows/x64/*.exe
-            out/make/*.dmg
-            out/make/*.zip
-            out/make/*.AppImage
-            out/make/*.deb
 name: Build App (pnpm make)
 
 on:
@@ -28,14 +17,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
-
       - name: Checkout assets submodule (recursive)
         run: git submodule update --init --recursive assets
 
       - name: List assets/desktop contents
         run: |
           ls -l assets/desktop || dir assets/desktop || echo "assets/desktop not found"
+        shell: bash
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -53,6 +41,7 @@ jobs:
 
       - name: Build with pnpm make (always run)
         id: make
+        # Using 2>&1 to capture stderr in the log as well
         run: |
           pnpm make 2>&1 | tee make.log
         continue-on-error: true
@@ -63,3 +52,16 @@ jobs:
         with:
           name: make-log-${{ matrix.os }}
           path: make.log
+
+      # --- This step was moved from the top of the file to here ---
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}
+          path: |
+            out/make/squirrel.windows/x64/*.exe
+            out/make/*.dmg
+            out/make/*.zip
+            out/make/*.AppImage
+            out/make/*.deb
