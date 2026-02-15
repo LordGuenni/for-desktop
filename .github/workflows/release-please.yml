@@ -1,41 +1,23 @@
-name: Release Please
+name: Instant Publish
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: write
-  id-token: write
+  packages: write
 
 concurrency:
-  group: release-please
+  group: instant-publish
   cancel-in-progress: true
 
 jobs:
-  release-please:
-    name: Release Please
-    runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.rp.outputs.release_created }}
-    steps:
-      - id: rp
-        uses: googleapis/release-please-action@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          config-file: release-please-config.json
-
-  publish-release:
-    name: Publish App
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+  publish:
+    name: Publish App (instant)
     runs-on: ${{ matrix.os }}
-
-    permissions:
-      contents: write
-
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -45,14 +27,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout assets
-        run: git -c submodule."assets".update=checkout submodule update --init assets
+        run: git -c submodule."assets".update=checkout submodule update --init assets || true
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -62,22 +44,16 @@ jobs:
         run: pnpm install
 
       - name: Publish
+        env:
+          PLATFORM: ${{ matrix.os }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "Publishing on $PLATFORM"
           pnpm run publish
-        env:
-          PLATFORM: ${{ matrix.os }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish macOS x64
-        if: matrix.os == 'macos-latest'
-        run: pnpm run publish --arch=x64
-        env:
-          PLATFORM: ${{ matrix.os }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish Linux arm64
-        if: matrix.os == 'ubuntu-latest'
-        run: pnpm run publish --arch=arm64
-        env:
-          PLATFORM: ${{ matrix.os }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload build artifacts (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-artifacts-${{ matrix.os }}
+          path: out/**
