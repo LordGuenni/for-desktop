@@ -7,6 +7,8 @@ jobs:
   build:
     name: Build App
     runs-on: ubuntu-latest
+    env:
+      BUILD_SERVER_URL: ${{ secrets.BUILD_SERVER_URL }}
 
     steps:
       - name: Checkout
