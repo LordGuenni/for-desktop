@@ -75,10 +75,33 @@ jobs:
       - name: Build package
         run: pnpm run package
 
-      - name: Upload artifacts to Release
+      - name: Locate built artifact
+        id: find
+        run: |
+          set -e
+          echo "Searching for artifact for ${{ matrix.os }}"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            FILE=$(find out -type f \( -name "*-setup.exe" -o -name "*.exe" \) -print -quit || true)
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            FILE=$(find out -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.pkg" \) -print -quit || true)
+          else
+            FILE=$(find out -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.tar.gz" -o -name "*.zip" \) -print -quit || true)
+          fi
+          if [ -z "$FILE" ]; then
+            echo "no_file=1" >> $GITHUB_OUTPUT
+            echo "Found no artifact"
+          else
+            BASENAME=$(basename "$FILE")
+            echo "file=$FILE" >> $GITHUB_OUTPUT
+            echo "name=$BASENAME" >> $GITHUB_OUTPUT
+            echo "Found artifact: $FILE"
+          fi
+
+      - name: Upload artifact to Release
+        if: steps.find.outputs.no_file != '1'
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./out/**
-          asset_name: ${{ matrix.os }}-artifact.zip
-          asset_content_type: application/zip
+          asset_path: ${{ steps.find.outputs.file }}
+          asset_name: ${{ steps.find.outputs.name }}
+          asset_content_type: application/octet-stream
