@@ -1,3 +1,36 @@
+      - name: Find and upload build artifacts
+        if: always()
+        run: |
+          set -e
+          ARTIFACTS=""
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            ARTIFACTS=$(ls out/make/squirrel.windows/x64/*.exe 2>/dev/null || true)
+          elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+            ARTIFACTS=$(ls out/make/*.dmg out/make/*.zip 2>/dev/null || true)
+          else
+            ARTIFACTS=$(ls out/make/*.AppImage out/make/*.deb 2>/dev/null || true)
+          fi
+          if [ -z "$ARTIFACTS" ]; then
+            echo "No build artifacts found."
+            exit 0
+          fi
+          for f in $ARTIFACTS; do
+            echo "Uploading $f"
+            echo "::set-output name=artifact::$f"
+          done
+        shell: bash
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ matrix.os }}
+          path: |
+            out/make/squirrel.windows/x64/*.exe
+            out/make/*.dmg
+            out/make/*.zip
+            out/make/*.AppImage
+            out/make/*.deb
 name: Build App (pnpm make)
 
 on:
@@ -18,8 +51,13 @@ jobs:
         uses: actions/checkout@v4
 
 
-      - name: Checkout assets submodule
-        run: git -c submodule."assets".update=checkout submodule update --init assets
+
+      - name: Checkout assets submodule (recursive)
+        run: git submodule update --init --recursive assets
+
+      - name: List assets/desktop contents
+        run: |
+          ls -l assets/desktop || dir assets/desktop || echo "assets/desktop not found"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
