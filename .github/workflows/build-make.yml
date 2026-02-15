@@ -1,29 +1,29 @@
-name: Build App (pnpm make)
+name: Build and Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    tags:
+      - 'v*' # Triggers only when you push a tag like v1.0.0
   workflow_dispatch:
 
+permissions:
+  contents: write # Needed to create the release and upload files
+
 jobs:
-  build:
+  build-and-release:
+    name: Build & Release (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
     steps:
-      - name: Checkout
+      - name: Checkout Code & Submodules
         uses: actions/checkout@v4
-
-      - name: Checkout assets submodule (recursive)
-        run: git submodule update --init --recursive assets
-
-      - name: List assets/desktop contents
-        run: |
-          ls -l assets/desktop || dir assets/desktop || echo "assets/desktop not found"
-        shell: bash
+        with:
+          # CRITICAL FIX: This ensures 'assets/desktop/icon.png' is downloaded
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -39,29 +39,34 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build with pnpm make (always run)
-        id: make
-        # Using 2>&1 to capture stderr in the log as well
-        run: |
-          pnpm make 2>&1 | tee make.log
-        continue-on-error: true
+      # --- Build Steps ---
 
-      - name: Upload make log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: make-log-${{ matrix.os }}
-          path: make.log
+      # Windows & Linux: Standard build
+      - name: Make (Windows/Linux)
+        if: matrix.os != 'macos-latest'
+        run: pnpm make
 
-      # --- This step was moved from the top of the file to here ---
-      - name: Upload build artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
+      # macOS: Attempt to build both Intel (x64) and Apple Silicon (arm64)
+      # This matches the file list you shared (Stoat-darwin-arm64 & Stoat-darwin-x64)
+      - name: Make (macOS Universal)
+        if: matrix.os == 'macos-latest'
+        run: pnpm make --arch=x64,arm64
+
+      # --- Release Step ---
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: build-artifacts-${{ matrix.os }}
-          path: |
-            out/make/squirrel.windows/x64/*.exe
-            out/make/*.dmg
-            out/make/*.zip
-            out/make/*.AppImage
-            out/make/*.deb
+          # This action is smart; it appends files from all 3 jobs to the same Release
+          files: |
+            out/make/**/RELEASES
+            out/make/**/*.nupkg
+            out/make/**/*.exe
+            out/make/**/*.zip
+            out/make/**/*.dmg
+            out/make/**/*.deb
+            out/make/**/*.rpm
+            out/make/**/*.AppImage
