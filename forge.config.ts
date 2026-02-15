@@ -20,6 +20,11 @@ const STRINGS = {
 };
 
 const ASSET_DIR = "assets/desktop";
+// Allow publishing to the repository the workflow runs in. This lets CI
+// publish to forks or user repositories using the provided `GITHUB_TOKEN`.
+const _repo = (process.env.GITHUB_REPOSITORY || "stoatchat/for-desktop").split("/");
+const REPO_OWNER = _repo[0];
+const REPO_NAME = _repo[1];
 
 /**
  * Build targets for the desktop app
@@ -169,8 +174,8 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: "stoatchat",
-        name: "for-desktop",
+        owner: REPO_OWNER,
+        name: REPO_NAME,
       },
     }),
   ],

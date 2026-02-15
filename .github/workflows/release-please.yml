@@ -26,7 +26,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
-
   publish-release:
     name: Publish Windows installer
     needs: release-please
@@ -64,8 +63,9 @@ jobs:
         run: pnpm run make
 
       - name: List build output
+        shell: pwsh
         run: |
-          if (Test-Path "out\\make\\squirrel.windows\\x64") {
+          if (Test-Path "out\\make\\squirrel.windows\\x64") { 
             Get-ChildItem -Path out\\make\\squirrel.windows\\x64 -Recurse | Format-List
           } else {
             Write-Host "No squirrel x64 folder found"
@@ -77,9 +77,19 @@ jobs:
           name: windows-installer
           path: out/make/squirrel.windows/x64/**
 
-      - name: Publish installer to GitHub Releases
+      - name: Get latest release tag
+        shell: pwsh
         run: |
-          pnpm run publish
+          $tag = gh release list --repo $Env:GITHUB_REPOSITORY --limit 1 --json tagName -q '.[0].tagName'
+          Write-Host "Latest release tag: $tag"
+          echo "RELEASE_TAG=$tag" >> $Env:GITHUB_ENV
         env:
-          PLATFORM: windows-latest
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer to Release
+        shell: pwsh
+        run: |
+          if (-not $Env:RELEASE_TAG) { Write-Error "No release tag found"; exit 1 }
+          gh release upload $Env:RELEASE_TAG out/make/squirrel.windows/x64/* --repo $Env:GITHUB_REPOSITORY --clobber
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
