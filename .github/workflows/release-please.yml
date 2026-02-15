@@ -32,6 +32,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: windows-latest
+    timeout-minutes: 60
 
     permissions:
       contents: write
@@ -58,7 +59,23 @@ jobs:
         run: pnpm install
 
       - name: Build Windows installer
+        env:
+          DEBUG: electron-forge*
         run: pnpm run make
+
+      - name: List build output
+        run: |
+          if (Test-Path "out\\make\\squirrel.windows\\x64") {
+            Get-ChildItem -Path out\\make\\squirrel.windows\\x64 -Recurse | Format-List
+          } else {
+            Write-Host "No squirrel x64 folder found"
+          }
+
+      - name: Upload built installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: out/make/squirrel.windows/x64/**
 
       - name: Publish installer to GitHub Releases
         run: |
