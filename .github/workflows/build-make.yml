@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,5 +31,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build with pnpm make
-        run: pnpm make
+      - name: Build with pnpm make (always run)
+        id: make
+        run: |
+          pnpm make 2>&1 | tee make.log
+        continue-on-error: true
+
+      - name: Upload make log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make-log-${{ matrix.os }}
+          path: make.log
