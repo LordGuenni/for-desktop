@@ -1,29 +1,27 @@
+name: Build App (pnpm make)
+
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - "**"
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build App
-    runs-on: ubuntu-latest
-    env:
-      BUILD_SERVER_URL: ${{ secrets.BUILD_SERVER_URL }}
-
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Checkout assets
-        run: git -c submodule."assets".update=checkout submodule update --init assets
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,5 +30,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm run package
+      - name: Build with pnpm make
+        run: pnpm make
