@@ -17,6 +17,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+
+      - name: Checkout assets submodule
+        run: git -c submodule."assets".update=checkout submodule update --init assets
+
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
